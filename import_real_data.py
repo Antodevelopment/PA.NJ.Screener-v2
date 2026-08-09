@@ -19,6 +19,7 @@ import openpyxl
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 OUTPUT = ROOT / "app" / "data" / "real-parcels.json"
+STATUS_OUTPUT = ROOT / "app" / "data" / "refresh-status.json"
 GEOCODE_CACHE = DATA / "nj-geocodes.json"
 CHESTER_GEOCODE_CACHE = DATA / "chester-geocodes.json"
 CHECKED = datetime.now(timezone.utc).date().isoformat()
@@ -428,6 +429,18 @@ def main() -> None:
     # property never vanishes just because it falls outside today's source cut.
     current_ids = {row["id"] for row in records}
     records.extend(row for row in previous if row["id"] not in current_ids)
+    previous_by_id = {row["id"]: row for row in previous}
+    new_sites = sum(1 for row in records if row["id"] not in previous_by_id)
+
+    def comparable(row: dict) -> dict:
+        return {key: value for key, value in row.items() if key != "sourceChecked"}
+
+    updated_sites = sum(
+        1
+        for row in records
+        if row["id"] in previous_by_id
+        and comparable(row) != comparable(previous_by_id[row["id"]])
+    )
     # A daily check should not rewrite every property just to change its checked
     # date. Preserve that date when the underlying screened records are identical.
     without_check_date = lambda items: [
@@ -440,7 +453,22 @@ def main() -> None:
             row["sourceChecked"] = previous_dates.get(row["id"], CHECKED)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    STATUS_OUTPUT.write_text(
+        json.dumps(
+            {
+                "lastChecked": CHECKED,
+                "status": "success",
+                "newSites": new_sites,
+                "updatedSites": updated_sites,
+                "totalSites": len(records),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     print(f"Wrote {len(records)} verified public records to {OUTPUT}")
+    print(f"Refresh summary: {new_sites} new, {updated_sites} updated")
 
 
 if __name__ == "__main__":

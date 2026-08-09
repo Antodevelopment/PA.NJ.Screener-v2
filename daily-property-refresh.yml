@@ -40,20 +40,6 @@ jobs:
       - name: Refresh official property records
         run: python scripts/import_real_data.py
 
-      - name: Record the successful daily check
-        run: |
-          python - <<'PY'
-          import datetime
-          import json
-          from pathlib import Path
-
-          checked = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
-          Path("app/data/refresh-status.json").write_text(
-              json.dumps({"lastChecked": checked}, indent=2) + "\n",
-              encoding="utf-8",
-          )
-          PY
-
       - name: Save any refreshed data
         run: |
           if git diff --quiet -- app/data/real-parcels.json app/data/refresh-status.json; then
