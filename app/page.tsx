@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import realParcels from "./data/real-parcels.json";
+import refreshStatus from "./data/refresh-status.json";
 
 type ScoreKey = "underutilization" | "regulatory" | "motivation" | "fit" | "intelligence";
 type Stage = "new" | "screening" | "pipeline" | "passed";
@@ -30,6 +31,16 @@ const factorHelp:Record<ScoreKey,string> = {
 };
 const initialWeights:Record<ScoreKey,number> = { underutilization:30, regulatory:25, motivation:20, fit:15, intelligence:10 };
 const ratingToIntelligence:Record<number,number> = { 1:10, 2:30, 3:50, 4:75, 5:95 };
+
+function displayDate(value:string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+}
+
+function nextCheck(value:string) {
+  const date=new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate()+1);
+  return `${date.toLocaleDateString("en-US",{month:"short",day:"numeric"})} · 6:17 AM ET`;
+}
 
 function money(value:number) {
   return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(value);
@@ -185,7 +196,8 @@ export default function Home() {
     {tab==="Screen"&&<>
       <section className="hero compactHero"><div><p className="eyebrow">TODAY’S COMBINED SCREEN</p><h1>The five best current choices.</h1><p>Fresh sites and previously screened sites compete together using their current feedback-adjusted scores.</p></div></section>
       <section className="loopSteps"><div><b>1</b><span><strong>Screen five</strong><small>Highest public-record scores</small></span></div><i>→</i><div><b>2</b><span><strong>Select Keep</strong><small>Save the sites worth pursuing</small></span></div><i>→</i><div><b>3</b><span><strong>Reach ownership</strong><small>Log comments + 1–5 signal</small></span></div><i>→</i><div><b>4</b><span><strong>Re-rank Keep List</strong><small>Scores update from feedback</small></span></div></section>
-      <section className="geoBar"><div><label>State<select aria-label="Filter top five by state" value={geoState} onChange={event=>{setGeoState(event.target.value as "all"|"NJ"|"PA");setGeoArea("all")}}><option value="all">All regions</option><option value="NJ">New Jersey</option><option value="PA">Pennsylvania</option></select></label><label className={geoState==="all"?"disabled":""}>{geoState==="NJ"?"County":geoState==="PA"?"Town":"County / town"}<select aria-label={geoState==="NJ"?"Filter by New Jersey county":"Filter by Chester County town"} value={geoArea} disabled={geoState==="all"} onChange={event=>setGeoArea(event.target.value)}><option value="all">{geoState==="NJ"?"All NJ counties":geoState==="PA"?"All Chester County towns":"Select a state first"}</option>{geoAreas.map(area=><option value={area} key={area}>{area}</option>)}</select></label></div><span>Ranking {geographyPool.length} eligible {geographyPool.length===1?"site":"sites"} by live KE score</span></section>
+      <section className="refreshPanel" aria-label="Daily property data refresh status"><div className="refreshSuccess"><i aria-hidden="true">✓</i><span><small>DAILY DATA REFRESH</small><strong>{refreshStatus.status==="success"?"Successful":"Needs attention"}</strong></span></div><dl><div><dt>Last checked</dt><dd>{displayDate(refreshStatus.lastChecked)}</dd></div><div><dt>New sites found</dt><dd>{refreshStatus.newSites}</dd></div><div><dt>Existing sites updated</dt><dd>{refreshStatus.updatedSites}</dd></div><div><dt>Next check</dt><dd>{nextCheck(refreshStatus.lastChecked)}</dd></div></dl></section>
+      <section className="geoBar"><div><label>State<select aria-label="Filter top five by state" value={geoState} onChange={event=>{setGeoState(event.target.value as "all"|"NJ"|"PA");setGeoArea("all")}}><option value="all">All regions</option><option value="NJ">New Jersey</option><option value="PA">Pennsylvania</option></select></label><label className={geoState==="all"?"disabled":""}>{geoState==="NJ"?"County":geoState==="PA"?"Town":"County / town"}<select aria-label={geoState==="NJ"?"Filter by New Jersey county":"Filter by Chester County town"} value={geoArea} disabled={geoState==="all"} onChange={event=>setGeoArea(event.target.value)}><option value="all">{geoState==="NJ"?"All NJ counties":geoState==="PA"?"All Chester County towns":"Select a state first"}</option>{geoAreas.map(area=><option value={area} key={area}>{area}</option>)}</select></label></div><span>Ranking {geographyPool.length} eligible {geographyPool.length===1?"site":"sites"} by live KE score · {refreshStatus.totalSites} tracked total</span></section>
       <section className="sectionHead"><div><h2>Top five current choices</h2><p>A previously screened 80 outranks a fresh 79; fresh 85s still take priority.</p></div><span className="updated">{geographyPool.length} eligible in this geography</span></section>
       <div className="workspace"><div className="cards">{screenFive.map((parcel,index)=><button key={parcel.id} className={`target ${selected.id===parcel.id?"selected":""}`} onClick={()=>setSelected(parcel)}><span className="rank">{index+1}</span><div className="targetMain"><div><span className="parcelId">{parcel.id}</span><span className={`status stage-${stageFor(parcel.id)}`}>{stageLabel(stageFor(parcel.id))}</span></div><h3>{parcel.address}</h3><p>{parcel.owner} · {parcel.ownerType}</p><p className="reason">{parcel.reason}</p><div className="chips">{parcel.flags.slice(0,3).map(flag=><span key={flag}>{flag}</span>)}</div></div><div className="score"><strong>{score(parcel,weights,logs)}</strong><span>KE SCORE</span>{scoreChange(parcel,weights,logs)!==0&&<em className={scoreChange(parcel,weights,logs)>0?"positive":"negative"}>{scoreChange(parcel,weights,logs)>0?"+":""}{scoreChange(parcel,weights,logs)} feedback</em>}</div></button>)}{screenFive.length===0&&<div className="empty"><strong>No eligible sites in this geography.</strong><span>Choose a broader state, county, or town.</span></div>}</div>
         <aside><div className="asideTop"><div><span className="parcelId">PARCEL {selected.id}</span><h2>{selected.address}</h2><p>{selected.owner}</p></div><button onClick={()=>setShowLog(true)}>Log feedback</button></div>
